@@ -1,0 +1,385 @@
+#!/usr/bin/env python
+"""Configure ozone neon3k mouse.
+Copyright 2017 Marek Antozi
+Author: Marek.Antozi@7gods.org (Marek Antozi)
+Date: 23012017
+"""
+
+import getopt
+import sys
+import time
+import usb.core
+import usb.util
+
+# Default settings: Main light color: cyan, DPI 1 color: blue, DPI 2 color:
+# magenta, LED state: on, Light FX: constant, DPI 1: 750, DPI 2: 1500, Profile:
+# 0, Polling rate: 500 MHz, FX speed: 4.
+msg = [0x06, 0x25, 0x00, 0x0a, 0x0a, 0x03, 0x03, 0x06, 0x06, 0x08, 0x0c, 0x00, \
+       0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x04, 0x04, 0x04, 0x01, 0x02, \
+       0x00, 0x02, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x06, 0x04, 0x01, 0x04, \
+       0x01]
+
+def color(color):
+    """Change LED color.
+
+    Args:
+      color: color index. 1: blue, 2: magenta, 3: red, 4: yellow, 5: green,
+          6: cyan, 7: white.
+    """
+    msg[19] = chr(int(color)) # ?
+    msg[20] = chr(int(color)) # ?
+    msg[21] = chr(int(color)) # ?
+    msg[32] = chr(int(color)) # Main
+
+def dpi1_color(color):
+    """Change LED color for DPI 1 option.
+
+    Args:
+      color: color index. 1: blue, 2: magenta, 3: red, 4: yellow, 5: green,
+          6: cyan, 7: white.
+    """
+    msg[17] = chr(int(color))
+
+def dpi2_color(color):
+    """Change LED color for DPI 2 option.
+
+    Args:
+      color: color index. 1: blue, 2: magenta, 3: red, 4: yellow, 5: green,
+          6: cyan, 7: white.
+    """
+    msg[18] = chr(int(color))
+
+def dpi1(dpi):
+    """Select DPI for choice 1.
+
+    Args:
+      dpi: 0: 125, 1: 250, 2: 500, 3: 750, 4: 1000, 5: 1250, 6: 1500, 7: 1750,
+        8: 2000, 9: 2250, 10: 2500, 11: 2750, 12: 3000, 13: 3250, 14: 3500.
+    """
+    msg[6] = chr(int(dpi))
+
+def dpi2(dpi):
+    """Select DPI for choice 2.
+
+    Args:
+        dpi: 1: 250, 2: 500, 3: 750, 4: 1000, 5: 1250, 6: 1500, 7: 1750,
+            8: 2000, 9: 2250, 10: 2500, 11: 2750, 12: 3000, 13: 3250, 14: 3500.
+    """
+    msg[7] = chr(int(dpi))
+
+def polling_rate(rate):
+    """Select polling rate.
+
+    Args:
+        rate: 0: 125 MHz, 1: 250 MHz, 2: 500 MHz, 3: 1000 MHz
+    """
+    msg[23] = chr(int(rate))
+
+def led_state(state):
+    """Set LED state.
+
+    Args:
+        state: LED state. 0: Off, 1: On.
+    """
+    msg[28] = chr(int(state))
+
+def fx_type(fx):
+    """Change FX type.
+
+    Args:
+      fx: Type of effect: 0: constant, 1: breathe, 2: blink, 3: heartbeat.
+    """
+    msg[30] = chr(int(fx))
+
+def fx_speed(speed):
+    """Change light FX speed.
+
+    Args:
+      speed: Speed of FX: 1: low, 2: medium, 4: high.
+    """
+    msg[33] = chr(int(speed))
+
+def usage():
+    """Print help.
+    """
+    msg = "Usage: " + sys.argv[0] + " [OPTION]\n" \
+        "Configure ozone neon3k mouse.\n\n" \
+        "Options:\n" \
+        "  --help   display this help and exit\n" \
+        "  --color=COLOR  set main light color\n" \
+        "                 1: blue, 2: magenta, 3: red, 4: yellow, 5: green, " \
+        "6: cyan,\n" \
+        "                 7: white.\n" \
+        "  --dpi1=DPI  set DPI for first option\n" \
+        "              1: 250, 2: 500, 3: 750, 4: 1000, 5: 1250, 6: 1500, "\
+        "7: 1750,\n" \
+        "              8: 2000, 9: 2250, 10: 2500, 11: 2750, 12: 3000, " \
+        "13: 3250,\n" \
+        "              14: 3500.\n" \
+        "  --dpi2=DPI  set DPI for second option\n" \
+        "  --dpi1_color=COLOR  set light color for DPI 1 option\n" \
+        "  --dpi2_color=COLOR  set light color for DPI 2 option\n" \
+        "  --fx_speed=SPEED  set light FX speed\n" \
+        "                    1: low, 2: medium, 4: high.\n" \
+        "  --fx_type=TYPE  set light FX type\n" \
+        "                  0: constant, 1: breathe, 2: blink, 3: heartbeat\n" \
+        "  --led_state=STATE  turn light on or off\n" \
+        "                     0: off, 1: on\n" \
+        "  --polling_rate=RATE  set polling rate\n" \
+        "                       0: 125 MHz, 1: 250 MHz, 2: 500 MHz, "\
+        "3: 1000 MHz\n" \
+        "  --profile=PROFILE  Not implemented yet.\n" \
+        "  --reset  set mouse settings to default values (LED color: cyan,\n" \
+        "           DPI 1 color: blue, DPI 2 color: magenta, LED: on,\n" \
+        "           Light: constant, DPI 1: 750, DPI 2: 1500, Profile: 0,\n" \
+        "           Polling rate: 500 MHz, FX speed: 4)\n\n" \
+        "Check <http://pavuk.7gods.org/neon3k/> for details.\n"
+
+    sys.stdout.write(msg)
+
+def main():
+    global msg
+    devices = []
+    reattach_0 = False
+    opt_color = None
+    opt_dpi1 = None
+    opt_dpi2 = None
+    opt_dpi1_color = None
+    opt_dpi2_color = None
+    opt_fx_speed = None
+    opt_fx_type = None
+    opt_led_state = None
+    opt_polling_rate = None
+    opt_profile = False
+    opt_reset = False
+
+    if len(sys.argv) <= 1:
+        usage()
+        exit()
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "h", ["help", "color=",
+            "dpi1=", "dpi2=", "dpi1_color=", "dpi2_color=", "fx_speed=",
+            "fx_type=", "led_state=",  "polling_rate=", "profile=", "reset"])
+    except getopt.GetoptError as err:
+        sys.stderr.write(str(err) + "\n")
+        usage()
+        sys.exit(1)
+    if not opts:
+        usage()
+        sys.exit(1)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif opt == "--color":
+            opt_color = arg
+        elif opt == "--dpi1":
+            opt_dpi1 = arg
+        elif opt == "--dpi2":
+            opt_dpi2 = arg
+        elif opt == "--dpi1_color":
+            opt_dpi1_color = arg
+        elif opt == "--dpi2_color":
+            opt_dpi2_color = arg
+        elif opt == "--fx_speed":
+            opt_fx_speed = arg
+        elif opt == "--fx_type":
+            opt_fx_type = arg
+        elif opt == "--led_state":
+            opt_led_state = arg
+        elif opt == "--polling_rate":
+            opt_polling_rate = arg
+        elif opt == "--profile":
+            opt_profile = arg
+        elif opt == "--reset":
+            opt_reset = True
+            arg = True
+        else:
+            sys.stderr.write("Option " + opt + " not handled.\n")
+            sys.exit(2)
+        if not arg:
+            sys.stderr.write("Argument must not be empty.\n")
+            sys.exit(1)
+
+    devs = usb.core.find(find_all=True, idVendor=0x12c9, idProduct=0x1002)
+
+    for dev in devs:
+        devices.append(dev)
+    if len(devices) == 0:
+        sys.stderr.write("Can not detect ozone neon3k mouse.\n")
+        sys.exit(1)
+
+    if opt_profile:
+        sys.stdout.write("Profile switching is currently disabled. Ignoring " +
+            "option --profile.\n")
+        opt_profile = None
+    if opt_reset:
+        if len(sys.argv) > 1:
+            sys.stdout.write("Option --reset is exclusive, ignoring other " +
+                "options.\n")
+    elif opt_profile:
+        if len(sys.argv) > 1:
+            sys.stdout.write("Option --profile is exclusive, ignoring other " +
+                "options.\n")
+    else:
+        if opt_color:
+            try:
+                opt_color = int(opt_color)
+            except:
+                sys.stderr.write("Option --color takes int as an argument.\n")
+                sys.exit(1)
+            if opt_color < 1 or opt_color > 7:
+                sys.stderr.write("Option --color takes int 1 to 7 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                color(opt_color)
+
+        if opt_dpi1:
+            try:
+                opt_dpi1 = int(opt_dpi1)
+            except:
+                sys.stderr.write("Option --dpi1 takes int as an argument.\n")
+                sys.exit(1)
+            if opt_dpi1 < 0 or opt_dpi1 > 14:
+                sys.stderr.write("Option --dpi1 takes int 0 to 3 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                dpi1(opt_dpi1)
+
+        if opt_dpi2:
+            try:
+                opt_dpi2 = int(opt_dpi2)
+            except:
+                sys.stderr.write("Option --dpi2 takes int as an argument.\n")
+                sys.exit(1)
+            if opt_dpi2 < 0 or opt_dpi2 > 14:
+                sys.stderr.write("Option --dpi2 takes int 0 to 3 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                dpi2(opt_dpi2)
+
+        if opt_dpi1_color:
+            try:
+                opt_dpi1_color = int(opt_dpi1_color)
+            except:
+                sys.stderr.write("Option --dpi1_color takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_dpi1_color < 1 or opt_dpi1_color > 7:
+                sys.stderr.write("Option --dpi1_color takes int 1 to 7 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                dpi1_color(opt_dpi1_color)
+
+        if opt_dpi2_color:
+            try:
+                opt_dpi2_color = int(opt_dpi2_color)
+            except:
+                sys.stderr.write("Option --dpi2_color takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_dpi2_color < 1 or opt_dpi2_color > 7:
+                sys.stderr.write("Option --dpi2_color takes int 1 to 7 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                dpi2_color(opt_dpi2_color)
+
+        if opt_fx_type:
+            try:
+                opt_fx_type = int(opt_fx_type)
+            except:
+                sys.stderr.write("Option --fx_type takes int as an argument.\n")
+                sys.exit(1)
+            if opt_fx_type < 0 or opt_fx_type > 3:
+                sys.stderr.write("Option --fx_type takes int 0 to 3 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                fx_type(opt_fx_type)
+
+        if opt_fx_speed:
+            try:
+                opt_fx_speed = int(opt_fx_speed)
+            except:
+                sys.stderr.write("Option --fx_speed takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_fx_speed != 1 and opt_fx_speed != 2 and opt_fx_speed != 4:
+                sys.stderr.write("Option --fx_speed takes int 1, 2 or 4 as " +
+                    "an argument.\n")
+                sys.exit(1)
+            else:
+                fx_speed(opt_fx_speed)
+
+        if opt_led_state:
+            try:
+                opt_led_state = int(opt_led_state)
+            except:
+                sys.stderr.write("Option --led_state takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_led_state < 0 or opt_led_state > 1:
+                sys.stderr.write("Option --led_state takes 0 or 1 as an " +
+                    "argument.\n")
+                sys.exit(1)
+            else:
+                led_state(opt_led_state)
+
+        if opt_polling_rate:
+            try:
+                opt_polling_rate = int(opt_polling_rate)
+            except:
+                sys.stderr.write("Option --polling_rate takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_polling_rate < 0 or opt_polling_rate > 3:
+                sys.stderr.write("Option --polling_rate takes int 1 to 3 as " +
+                    "an argument.\n")
+                sys.exit(1)
+            else:
+                polling_rate(opt_polling_rate)
+
+        if opt_profile:
+            try:
+                opt_profile = int(opt_profile)
+            except:
+                sys.stderr.write("Option --profile takes int as an " +
+                    "argument.\n")
+                sys.exit(1)
+            if opt_profile < 0 or opt_profile > 4:
+                sys.stderr.write("Option --profile takes int 1 to 4 as an " +
+                    "argument.\n")
+                sys.exit(1)
+
+    for dev in devices:
+        if dev.is_kernel_driver_active(0):
+            reattach_0 = True
+            dev.detach_kernel_driver(0)
+
+        if opt_profile:
+            msg = [0x05, 0x03, chr(int(opt_profile))]
+            bytes_transfered = dev.ctrl_transfer(0x21, 9, 0x0305, 0,
+                bytearray(msg))
+        else:
+            bytes_transfered = dev.ctrl_transfer(0x21, 9, 0x0306, 0,
+                bytearray(msg))
+
+        time.sleep(0.1)
+        ret = dev.ctrl_transfer(0xa1, 0x01, 0x0304, 0, 3)
+
+        sret = ''.join([chr(x) for x in ret])
+
+        usb.util.dispose_resources(dev)
+        if reattach_0:
+            dev.attach_kernel_driver(0)
+
+if __name__ == '__main__':
+    main()
+
+sys.exit()
