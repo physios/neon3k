@@ -1,7 +1,7 @@
 # Neon3K
 neon3k is a linux CLI tool written in python for [ozone neon3k mouse] (http://www.ozonegaming.com/product/neon-3k).
 
-Read more about using ozone neon3k mouse under linux at [http://pavuk/7gods/org/neon3k/] (http://pavuk/7gods/org/neon3k/).
+Read more about using ozone neon3k mouse under linux [here] (http://pavuk.7gods.org/neon3k/).
 
 ## Dependencies
 python, phython-usb
