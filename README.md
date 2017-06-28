@@ -25,6 +25,11 @@ After making it executable simply run the following line to get options:
 ```Shell
 ./neon3k --help
 ```
+Note that to change options you will need to run Neon3K under sudo, for example I want to change the color to blue so I will run this:
+
+```Shell
+sudo ./neon3k --color 1
+```
 
 ## Target
 To get same functionality as "driver" for windows operating system offers.
